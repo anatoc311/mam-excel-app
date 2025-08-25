@@ -1,68 +1,300 @@
-+<!doctype html>
-+<html lang="ru">
-+<head>
-+  <meta charset="utf-8">
-+  <title>Генератор Excel</title>
-+  <style>
-+    body { font-family: sans-serif; background-color:#222; color:#eee; }
-+    input { width:100%; padding:4px; margin-bottom:8px; }
-+    label { display:block; }
-+    .tabs { display:flex; margin-bottom:10px; }
-+    .tab { padding:8px 16px; cursor:pointer; background:#333; margin-right:5px; }
-+    .tab.active { background:#555; }
-+    .tab-content { display:none; }
-+    .tab-content.active { display:block; }
-+  </style>
-+  <script>
-+    function showTab(id){
-+      document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active');});
-+      document.querySelectorAll('.tab').forEach(function(el){el.classList.remove('active');});
-+      document.getElementById(id).classList.add('active');
-+      document.querySelector('[data-tab="'+id+'"]').classList.add('active');
-+    }
-+  </script>
-+</head>
-+<body>
-+  <h1>Заполнение данных</h1>
-+  <div class="tabs">
-+    <div class="tab active" data-tab="person" onclick="showTab('person')">Прописываемый</div>
-+    <div class="tab" data-tab="host" onclick="showTab('host')">Принимающий</div>
-+  </div>
-+  <form action="/generate" method="post">
-+    <div id="person" class="tab-content active">
-+      <h2>Прописываемый</h2>
-+      {% for field,label in person_labels.items() %}
-+        {% if field == 'sex' %}
-+          <div>
-+            {{label}}:
-+            <label><input type="radio" name="person_sex" value="М" checked> Мужской</label>
-+            <label><input type="radio" name="person_sex" value="Ж"> Женский</label>
-+          </div>
-+        {% else %}
-+          <label>{{label}}<input type="text" name="person_{{field}}"></label>
-+        {% endif %}
-+      {% endfor %}
-+      <h3>Адрес прежнего места пребывания</h3>
-+      {% for field,label in address_labels.items() %}
-+        <label>{{label}}<input type="text" name="person_prev_address_{{field}}"></label>
-+      {% endfor %}
-+      <h3>Адрес места пребывания</h3>
-+      {% for field,label in address_labels.items() %}
-+        <label>{{label}}<input type="text" name="person_reg_address_{{field}}"></label>
-+      {% endfor %}
-+    </div>
-+    <div id="host" class="tab-content">
-+      <h2>Принимающий</h2>
-+      {% for field,label in host_labels.items() %}
-+        <label>{{label}}<input type="text" name="host_{{field}}"></label>
-+      {% endfor %}
-+      <h3>Адрес проживания принимающей стороны</h3>
-+      {% for field,label in address_labels.items() %}
-+        <label>{{label}}<input type="text" name="host_residence_{{field}}"></label>
-+      {% endfor %}
-+    </div>
-+    <input type="submit" value="Скачать Excel">
-+  </form>
-+  <script>showTab('person');</script>
-+</body>
-+</html>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Заполнение данных — удобная форма</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    :root { --container-max: 1000px; }
+    .container-narrow { max-width: var(--container-max); }
+    .card { border: 0; box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,.06); }
+    .section-title { font-size: 1.1rem; font-weight: 600; color: #0d6efd; margin-bottom: .25rem; }
+    .hint { color:#6c757d; font-size:.875rem }
+    .sticky-actions { position: sticky; bottom: 0; z-index: 1030; background: rgba(255,255,255,.9); backdrop-filter: blur(6px); border-top: 1px solid rgba(0,0,0,.075); }
+    .required::after { content:" *"; color:#dc3545; }
+    .form-floating>label>small { font-weight: 400; color:#adb5bd }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#f8f9fa; border:1px solid #dee2e6; border-radius:.25rem; padding:.125rem .375rem }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container container-narrow py-4">
+    <header class="d-flex align-items-center gap-3 mb-3">
+      <i class="bi bi-clipboard2-check fs-2 text-primary"></i>
+      <div>
+        <h1 class="h3 mb-1">Заполнение данных</h1>
+        <div class="hint">Удобная форма для подготовки Excel. Поля сгруппированы, есть автосохранение и копирование адресов.</div>
+      </div>
+    </header>
+
+    <!-- Навигация между разделами -->
+    <ul class="nav nav-pills mb-3" id="tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="person-tab" data-bs-toggle="tab" data-bs-target="#person" type="button" role="tab">
+          <i class="bi bi-person-badge me-1"></i> Прописываемый
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="host-tab" data-bs-toggle="tab" data-bs-target="#host" type="button" role="tab">
+          <i class="bi bi-house-door me-1"></i> Принимающий
+        </button>
+      </li>
+    </ul>
+
+    <form action="/generate" method="post" class="tab-content needs-validation" id="regForm" novalidate>
+
+      <!-- TAB: Прописываемый -->
+      <div class="tab-pane fade show active" id="person" role="tabpanel">
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="section-title">Личные данные</div>
+            <div class="hint mb-3">Заполните ФИО, гражданство, даты и документ. Для быстрого перемещения используйте <span class="kbd">Tab</span>.</div>
+
+            <div class="row g-3 align-items-end">
+              {# Рендер полей из person_labels с улучшенной логикой отображения #}
+              {% for field, label in person_labels.items() %}
+                {% set l = label|lower %}
+                {% set is_small = 'день' in l or 'месяц' in l or 'год' in l or 'серия' in l or 'номер' in l %}
+                {% set col = 'col-6 col-md-2' if is_small else 'col-12 col-md-6' %}
+
+                {% if field == 'sex' %}
+                  <div class="col-12">
+                    <label class="form-label required d-block">{{ label }}</label>
+                    <div class="btn-group" role="group" aria-label="Пол">
+                      <input type="radio" class="btn-check" name="person_sex" id="sexM" value="М" checked>
+                      <label class="btn btn-outline-primary" for="sexM"><i class="bi bi-gender-male me-1"></i>Мужской</label>
+                      <input type="radio" class="btn-check" name="person_sex" id="sexF" value="Ж">
+                      <label class="btn btn-outline-primary" for="sexF"><i class="bi bi-gender-female me-1"></i>Женский</label>
+                    </div>
+                  </div>
+
+                {% elif 'документ' in l and ('вид' in l or 'тип' in l) %}
+                  <div class="col-12 col-md-6">
+                    <label class="form-label required" for="person_{{ field }}">{{ label }}</label>
+                    <select class="form-select" id="person_{{ field }}" name="person_{{ field }}" required>
+                      <option value="" selected disabled>Выберите тип документа</option>
+                      <option>Паспорт гражданина РФ</option>
+                      <option>Загранпаспорт</option>
+                      <option>ВНЖ</option>
+                      <option>Удостоверение личности</option>
+                      <option>Иное</option>
+                    </select>
+                    <div class="invalid-feedback">Укажите тип документа.</div>
+                  </div>
+
+                {% elif 'email' in field %}
+                  <div class="col-12 col-md-6">
+                    <label class="form-label" for="person_{{ field }}">{{ label }}</label>
+                    <input class="form-control" type="email" id="person_{{ field }}" name="person_{{ field }}" placeholder="name@example.com">
+                  </div>
+
+                {% else %}
+                  <div class="{{ col }}">
+                    <label class="form-label{% if 'обяз' in l %} required{% endif %}" for="person_{{ field }}">{{ label }}</label>
+                    <input
+                      class="form-control"
+                      type="{{ 'number' if ('серия' in l or 'номер' in l) else 'text' }}"
+                      id="person_{{ field }}"
+                      name="person_{{ field }}"
+                      {% if 'день' in l %} inputmode="numeric" pattern="\\d{1,2}" placeholder="дд" aria-label="День"{% endif %}
+                      {% if 'месяц' in l %} inputmode="numeric" pattern="\\d{1,2}" placeholder="мм" aria-label="Месяц"{% endif %}
+                      {% if 'год' in l %} inputmode="numeric" pattern="\\d{4}" placeholder="гггг" aria-label="Год"{% endif %}
+                    />
+                  </div>
+                {% endif %}
+              {% endfor %}
+          </div>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <div class="section-title">Адрес прежнего места пребывания</div>
+                <div class="hint">Заполните адрес, где проживали ранее.</div>
+              </div>
+              <span class="text-secondary small">Можно будет скопировать в новый адрес</span>
+            </div>
+            <div class="row g-3">
+              {% for field,label in address_labels.items() %}
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="person_prev_address_{{ field }}">{{ label }}</label>
+                  <input class="form-control" type="text" id="person_prev_address_{{ field }}" name="person_prev_address_{{ field }}" autocomplete="address-line1">
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <div class="section-title">Адрес места пребывания</div>
+                <div class="hint">Адрес, по которому будет оформлена регистрация.</div>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="copyPrevAddr">
+                <label class="form-check-label" for="copyPrevAddr"><i class="bi bi-arrow-down-square me-1"></i>Скопировать из прежнего</label>
+              </div>
+            </div>
+            <div class="row g-3">
+              {% for field,label in address_labels.items() %}
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="person_reg_address_{{ field }}">{{ label }}</label>
+                  <input class="form-control" type="text" id="person_reg_address_{{ field }}" name="person_reg_address_{{ field }}" autocomplete="address-line2">
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Принимающий -->
+      <div class="tab-pane fade" id="host" role="tabpanel">
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="section-title">Данные принимающей стороны</div>
+            <div class="row g-3">
+              {% for field,label in host_labels.items() %}
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="host_{{ field }}">{{ label }}</label>
+                  <input class="form-control" type="text" id="host_{{ field }}" name="host_{{ field }}">
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="section-title">Адрес проживания принимающей стороны</div>
+            <div class="row g-3">
+              {% for field,label in address_labels.items() %}
+                <div class="col-12 col-md-6">
+                  <label class="form-label" for="host_residence_{{ field }}">{{ label }}</label>
+                  <input class="form-control" type="text" id="host_residence_{{ field }}" name="host_residence_{{ field }}">
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Панель действий -->
+      <div class="sticky-actions p-3 d-flex gap-2 justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <div class="progress" style="width:220px" aria-label="Заполнено">
+            <div class="progress-bar" role="progressbar" style="width: 0%" id="fillProgress" aria-valuemin="0" aria-valuemax="100">0%</div>
+          </div>
+          <span class="hint" id="filledCount">0 заполнено</span>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary" id="resetForm"><i class="bi bi-arrow-counterclockwise me-1"></i>Очистить</button>
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <span class="default"><i class="bi bi-download me-1"></i>Скачать Excel</span>
+            <span class="loading d-none"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Формирование…</span>
+          </button>
+        </div>
+      </div>
+
+    </form>
+
+    <footer class="pt-4 text-center text-muted small">Данные сохраняются локально в браузере.</footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // --- Клиентская валидация Bootstrap ---
+    (function () {
+      const form = document.getElementById('regForm');
+      form.addEventListener('submit', function (event) {
+        document.getElementById('submitBtn').querySelector('.default').classList.add('d-none');
+        document.getElementById('submitBtn').querySelector('.loading').classList.remove('d-none');
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+          document.getElementById('submitBtn').querySelector('.default').classList.remove('d-none');
+          document.getElementById('submitBtn').querySelector('.loading').classList.add('d-none');
+        }
+        form.classList.add('was-validated');
+      }, false);
+    })();
+
+    // --- Автосохранение в localStorage ---
+    (function () {
+      const STORAGE_KEY = 'regFormDataV2';
+      const form = document.getElementById('regForm');
+      // Восстановление
+      try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        Object.entries(data).forEach(([k,v]) => {
+          const el = form.elements.namedItem(k);
+          if (!el) return;
+          if (el.type === 'radio') {
+            const same = form.querySelector(`[name="${el.name}"][value="${v}"]`);
+            if (same) same.checked = true;
+          } else {
+            el.value = v;
+          }
+        });
+      } catch (e) { /* ignore */ }
+      // Сохранение при вводе
+      form.addEventListener('input', () => {
+        const data = {};
+        Array.from(form.elements).forEach(el => {
+          if (!el.name) return;
+          if (el.type === 'radio') {
+            if (el.checked) data[el.name] = el.value; 
+          } else if (el.type !== 'submit' && el.type !== 'button') {
+            data[el.name] = el.value;
+          }
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        computeProgress();
+      });
+      // Сброс формы
+      document.getElementById('resetForm').addEventListener('click', () => {
+        form.reset();
+        localStorage.removeItem(STORAGE_KEY);
+        computeProgress();
+      });
+    })();
+
+    // --- Копирование адреса прежнего места в новый ---
+    (function () {
+      const checkbox = document.getElementById('copyPrevAddr');
+      const form = document.getElementById('regForm');
+      checkbox?.addEventListener('change', () => {
+        const prev = Array.from(form.elements).filter(e => e.name?.startsWith('person_prev_address_'));
+        const reg  = Array.from(form.elements).filter(e => e.name?.startsWith('person_reg_address_'));
+        if (checkbox.checked) {
+          reg.forEach(dst => {
+            const suffix = dst.name.replace('person_reg_address_', '');
+            const src = form.elements.namedItem('person_prev_address_' + suffix);
+            if (src) dst.value = src.value;
+          });
+          form.dispatchEvent(new Event('input'));
+        }
+      });
+    })();
+
+    // --- Прогресс заполнения ---
+    function computeProgress() {
+      const form = document.getElementById('regForm');
+      const inputs = Array.from(form.querySelectorAll('input[type="text"], input[type="number"], input[type="email"], select'));
+      const filled = inputs.filter(i => (i.type === 'radio') ? i.checked : String(i.value).trim().length > 0).length;
+      const total  = inputs.length;
+      const p = total ? Math.round(filled * 100 / total) : 0;
+      const bar = document.getElementById('fillProgress');
+      const cnt = document.getElementById('filledCount');
+      bar.style.width = p + '%';
+      bar.ariaValueNow = p;
+      bar.textContent = p + '%';
+      cnt.textContent = filled + ' из ' + total + ' полей';
+    }
+    document.addEventListener('DOMContentLoaded', computeProgress);
+  </script>
+</body>
+</html>
