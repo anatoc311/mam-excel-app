@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, fields
 from io import BytesIO
 from pathlib import Path
 
-from flask import Flask, render_template_string, request, send_file
+from flask import Flask, render_template, request, send_file
 import openpyxl
 from openpyxl.utils import column_index_from_string
 
@@ -226,44 +226,67 @@ ADDRESS_FIELDS = [f.name for f in fields(AddressData)]
 PERSON_FIELDS = [f.name for f in fields(PersonData) if f.type is str]
 HOST_FIELDS = [f.name for f in fields(HostData) if f.type is str]
 
+ADDRESS_LABELS = {
+    "subject_rf": "Субъект РФ",
+    "settlement": "Район",
+    "locality": "Населённый пункт",
+    "street": "Улица",
+    "house": "Дом",
+    "apartment": "Квартира",
+}
 
-FORM_TEMPLATE = """
-<!doctype html>
-<title>Excel Form</title>
-<h1>Fill Data</h1>
-<form action="/generate" method="post">
-  <h2>Person</h2>
-  {% for name in person_fields %}
-    <label>{{name}}: <input type="text" name="person_{{name}}"></label><br>
-  {% endfor %}
-  <h3>Previous Address</h3>
-  {% for name in address_fields %}
-    <label>{{name}}: <input type="text" name="person_prev_address_{{name}}"></label><br>
-  {% endfor %}
-  <h3>Registration Address</h3>
-  {% for name in address_fields %}
-    <label>{{name}}: <input type="text" name="person_reg_address_{{name}}"></label><br>
-  {% endfor %}
-  <h2>Host</h2>
-  {% for name in host_fields %}
-    <label>{{name}}: <input type="text" name="host_{{name}}"></label><br>
-  {% endfor %}
-  <h3>Host Residence</h3>
-  {% for name in address_fields %}
-    <label>{{name}}: <input type="text" name="host_residence_{{name}}"></label><br>
-  {% endfor %}
-  <input type="submit" value="Generate Excel">
-</form>
-"""
+PERSON_LABELS = {
+    "surname_ru": "Фамилия",
+    "surname_lat": "Фамилия (лат.)",
+    "name_ru": "Имя",
+    "name_lat": "Имя (лат.)",
+    "patronymic_ru": "Отчество",
+    "patronymic_lat": "Отчество (лат.)",
+    "citizenship": "Гражданство",
+    "birth_day": "Дата рождения (день)",
+    "birth_month": "Дата рождения (месяц)",
+    "birth_year": "Дата рождения (год)",
+    "sex": "Пол",
+    "birth_place": "Место рождения",
+    "doc_type": "Документ: вид",
+    "doc_series": "Серия",
+    "doc_number": "Номер",
+    "issue_day": "Дата выдачи (день)",
+    "issue_month": "Дата выдачи (месяц)",
+    "issue_year": "Дата выдачи (год)",
+    "expiry_day": "Срок действия (день)",
+    "expiry_month": "Срок действия (месяц)",
+    "expiry_year": "Срок действия (год)",
+    "arrival_day": "Дата прибытия (день)",
+    "arrival_month": "Дата прибытия (месяц)",
+    "arrival_year": "Дата прибытия (год)",
+    "stay_day": "Дата убытия (день)",
+    "stay_month": "Дата убытия (месяц)",
+    "stay_year": "Дата убытия (год)",
+    "migration_series": "Серия миграционной карты",
+    "migration_number": "Номер миграционной карты",
+}
+
+HOST_LABELS = {
+    "surname": "Фамилия",
+    "name": "Имя",
+    "patronymic": "Отчество",
+    "doc_type": "Документ: вид",
+    "doc_series": "Серия",
+    "doc_number": "Номер",
+    "issue_day": "Дата выдачи (день)",
+    "issue_month": "Дата выдачи (месяц)",
+    "issue_year": "Дата выдачи (год)",
+}
 
 
 @app.route("/")
 def index():
-    return render_template_string(
-        FORM_TEMPLATE,
-        person_fields=PERSON_FIELDS,
-        host_fields=HOST_FIELDS,
-        address_fields=ADDRESS_FIELDS,
+    return render_template(
+        "index.html",
+        person_labels=PERSON_LABELS,
+        host_labels=HOST_LABELS,
+        address_labels=ADDRESS_LABELS,
     )
 
 
